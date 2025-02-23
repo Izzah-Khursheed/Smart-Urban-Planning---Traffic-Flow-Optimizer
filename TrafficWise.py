@@ -21,7 +21,7 @@ if 'current_map' not in st.session_state:
 
 # Page configuration
 st.set_page_config(
-    page_title="TrafficWise Urban Planner",
+    page_title="TrafficWise AI Planner",
     page_icon="🚦",
     layout="wide"
 )
@@ -125,7 +125,7 @@ def generate_traffic_map(center_lat=30.3753, center_lng=69.3451):
     return m
 
 # Sidebar configuration
-st.sidebar.title("🚦 TrafficWise Urban Planner")
+st.sidebar.title("🚦 TrafficWise AI Planner")
 st.sidebar.markdown("Your AI Assistant for Traffic & Urban Planning")
 
 # Previous locations section
@@ -180,7 +180,7 @@ temperature = st.sidebar.slider(
 )
 
 # Main chat interface
-st.title("🚦 TrafficWise Urban Planner")
+st.title("🚦 TrafficWise AI Planner")
 st.markdown("""
 ### Your AI Assistant for:
 - 🚗 Traffic Route Optimization
