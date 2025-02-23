@@ -4,4 +4,4 @@ streamlit-folium
 requests
 osmnx
 geopandas
-matplotlib.pyplot
+matplotlib
