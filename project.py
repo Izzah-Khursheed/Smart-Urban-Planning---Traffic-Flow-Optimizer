@@ -190,7 +190,7 @@ def fetch_road_data(city, api_key):
     overpass_url = "http://overpass-api.de/api/interpreter"
     nominatim_url = "https://us1.locationiq.com/v1/search.php"
 
-    st.write(f"Fetching bounding box for {city}...")
+    
 
     # Use Nominatim API to get bounding box for the city
     nominatim_params = {
