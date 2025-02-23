@@ -9,7 +9,7 @@ import pandas as pd
 
 # Pre-configured API key
 GROQ_API_KEY = "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"
-LOCATIONIQ_API_KEY = "your_locationiq_api_key"  # Replace with your actual LocationIQ API key
+LOCATIONIQ_API_KEY = "pk.db29fc5fd77946d0a831bed8946eff5f"  # Replace with your actual LocationIQ API key
 
 # Initialize session state for chat history if it doesn't exist
 if 'chat_history' not in st.session_state:
