@@ -4,10 +4,13 @@ from streamlit_folium import folium_static
 import requests
 import json
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 # API Keys
-GROQ_API_KEY = "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"
-HERE_API_KEY = "Z-INy7MKiZwfH6mAchEr0QPFaYuuo5QKqGxSnHxcKTY"
+load_dotenv()  # Load variables from .env file
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+HERE_API_KEY = os.getenv("HERE_API_KEY")
 
 # Initialize session states
 if 'chat_history' not in st.session_state:
