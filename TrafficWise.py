@@ -59,7 +59,7 @@ def get_traffic_incidents(lat, lon, radius=1000):
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        st.warning(f"Note: Traffic data may be limited in this area")
+        # st.warning(f"Note: Traffic data may be limited in this area")
         return None
 
 def generate_traffic_map(center_lat=30.3753, center_lng=69.3451):
