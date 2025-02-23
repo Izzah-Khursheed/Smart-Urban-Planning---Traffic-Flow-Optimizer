@@ -3,6 +3,7 @@ import folium
 from streamlit_folium import folium_static
 import requests
 import json
+from datetime import datetime
 
 # API Keys
 GROQ_API_KEY = "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"
@@ -13,28 +14,16 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'user_input' not in st.session_state:
     st.session_state.user_input = ""
-if 'location_input' not in st.session_state:
-    st.session_state.location_input = ""
+if 'location_history' not in st.session_state:
+    st.session_state.location_history = []
+if 'current_map' not in st.session_state:
+    st.session_state.current_map = None
 
 # Page configuration
 st.set_page_config(
     page_title="TrafficWise Urban Planner",
     page_icon="🚦",
     layout="wide"
-)
-
-# Sidebar configuration
-st.sidebar.title("🚦 TrafficWise Urban Planner")
-st.sidebar.markdown("Your AI Assistant for Traffic & Urban Planning")
-
-# Temperature slider
-temperature = st.sidebar.slider(
-    "AI Response Variation:",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.7,
-    step=0.1,
-    help="Higher values provide more varied suggestions, lower values offer more consistent advice"
 )
 
 def geocode_address(address):
@@ -50,77 +39,147 @@ def geocode_address(address):
         data = response.json()
         if data['items']:
             position = data['items'][0]['position']
-            return position['lat'], position['lng']
-        return None
+            address_label = data['items'][0].get('address', {}).get('label', address)
+            return position['lat'], position['lng'], address_label
+        return None, None, None
     except Exception as e:
         st.error(f"Geocoding error: {str(e)}")
-        return None
+        return None, None, None
 
-def get_traffic_data(lat, lon, radius=1000):
-    """Fetch real-time traffic data from HERE API"""
-    url = f"https://traffic.ls.hereapi.com/traffic/6.2/flow.json"
+def get_traffic_incidents(lat, lon, radius=1000):
+    """Fetch traffic incidents from HERE API"""
+    url = "https://data.traffic.hereapi.com/v7/incidents"
     params = {
         'apiKey': HERE_API_KEY,
-        'prox': f"{lat},{lon},{radius}"
+        'in': f"circle:{lat},{lon};r={radius}",
+        'locationReferencing': 'polyline'
     }
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        st.error(f"Traffic data error: {str(e)}")
+        st.warning(f"Note: Traffic data may be limited in this area")
         return None
 
 def generate_traffic_map(center_lat=30.3753, center_lng=69.3451):
     """Generate map with traffic data"""
     m = folium.Map(location=[center_lat, center_lng], zoom_start=13)
     
-    # Add traffic data if available
-    traffic_data = get_traffic_data(center_lat, center_lng)
-    if traffic_data and 'RWS' in traffic_data:
-        for rw in traffic_data['RWS']:
-            for flow_item in rw.get('RW', []):
-                for fi in flow_item.get('FIS', []):
-                    for location in fi.get('FI', []):
-                        if 'CF' in location:
-                            # Add traffic flow visualization
-                            points = location['CF'][0]['CF']
-                            coordinates = [[p['lat'], p['lon']] for p in points]
-                            # Color based on jam factor (0-10)
-                            jam_factor = location['CF'][0].get('JF', 0)
-                            color = 'green' if jam_factor < 4 else 'yellow' if jam_factor < 7 else 'red'
-                            
-                            folium.PolyLine(
-                                coordinates,
-                                color=color,
-                                weight=5,
-                                opacity=0.8,
-                                tooltip=f"Traffic Jam Factor: {jam_factor}"
-                            ).add_to(m)
+    # Add marker for searched location
+    folium.Marker(
+        [center_lat, center_lng],
+        popup="Selected Location",
+        icon=folium.Icon(color='red', icon='info-sign')
+    ).add_to(m)
+    
+    # Add traffic incidents if available
+    incidents = get_traffic_incidents(center_lat, center_lng)
+    if incidents and 'results' in incidents:
+        for incident in incidents['results']:
+            try:
+                # Get incident details
+                description = incident.get('description', {}).get('value', 'Traffic Incident')
+                severity = incident.get('severity', {}).get('value', 'minor')
+                
+                # Color based on severity
+                color = {
+                    'minor': 'green',
+                    'moderate': 'orange',
+                    'major': 'red'
+                }.get(severity, 'blue')
+                
+                # Get location
+                location = incident.get('location', {})
+                if 'polyline' in location:
+                    coordinates = []
+                    points = location['polyline'].get('points', [])
+                    for point in points:
+                        lat = point.get('lat')
+                        lng = point.get('lng')
+                        if lat and lng:
+                            coordinates.append([lat, lng])
+                    
+                    if coordinates:
+                        # Add incident to map
+                        folium.PolyLine(
+                            coordinates,
+                            color=color,
+                            weight=4,
+                            opacity=0.8,
+                            tooltip=description
+                        ).add_to(m)
+                        
+                        # Add marker at start of incident
+                        folium.CircleMarker(
+                            coordinates[0],
+                            radius=8,
+                            color=color,
+                            fill=True,
+                            popup=description
+                        ).add_to(m)
+                
+            except Exception as e:
+                continue
     
     return m
 
-# Sidebar map section
-st.sidebar.subheader("Live Traffic Map")
+# Sidebar configuration
+st.sidebar.title("🚦 TrafficWise Urban Planner")
+st.sidebar.markdown("Your AI Assistant for Traffic & Urban Planning")
+
+# Previous locations section
+if st.session_state.location_history:
+    st.sidebar.subheader("Recent Searches")
+    for idx, (loc, timestamp) in enumerate(reversed(st.session_state.location_history[-5:])):
+        if st.sidebar.button(f"📍 {loc} ({timestamp})", key=f"prev_loc_{idx}"):
+            coordinates = geocode_address(loc)
+            if coordinates[0]:
+                st.session_state.current_map = generate_traffic_map(coordinates[0], coordinates[1])
+
+# Location input
+st.sidebar.subheader("Search Location")
 location_input = st.sidebar.text_input(
-    "Enter location to view traffic:",
+    "Enter city or address:",
     key="location_input",
-    placeholder="Enter an address or location"
+    placeholder="e.g., London, New York, Tokyo"
 )
 
+# Map container
+map_container = st.sidebar.container()
+map_container.subheader("Traffic Map")
+
 if location_input:
-    coordinates = geocode_address(location_input)
-    if coordinates:
-        lat, lng = coordinates
-        with st.sidebar:
-            folium_static(generate_traffic_map(lat, lng))
+    lat, lng, address_label = geocode_address(location_input)
+    if lat and lng:
+        # Update location history
+        timestamp = datetime.now().strftime("%H:%M")
+        if address_label not in [loc for loc, _ in st.session_state.location_history]:
+            st.session_state.location_history.append((address_label, timestamp))
+        # Generate and store map
+        st.session_state.current_map = generate_traffic_map(lat, lng)
+        st.sidebar.success(f"📍 Showing traffic for: {address_label}")
     else:
         st.sidebar.error("Location not found. Please try another address.")
-else:
-    with st.sidebar:
-        folium_static(generate_traffic_map())
 
-# Rest of the chat interface remains the same
+# Display current map
+with map_container:
+    if st.session_state.current_map:
+        folium_static(st.session_state.current_map, width=300, height=400)
+    else:
+        folium_static(generate_traffic_map(), width=300, height=400)
+
+# Temperature slider
+temperature = st.sidebar.slider(
+    "AI Response Variation:",
+    min_value=0.0,
+    max_value=1.0,
+    value=0.7,
+    step=0.1,
+    help="Higher values provide more varied suggestions, lower values offer more consistent advice"
+)
+
+# Main chat interface
 st.title("🚦 TrafficWise Urban Planner")
 st.markdown("""
 ### Your AI Assistant for:
