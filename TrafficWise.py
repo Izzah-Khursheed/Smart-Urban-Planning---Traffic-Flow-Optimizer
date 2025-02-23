@@ -158,7 +158,7 @@ if location_input:
             st.session_state.location_history.append((address_label, timestamp))
         # Generate and store map
         st.session_state.current_map = generate_traffic_map(lat, lng)
-        st.sidebar.success(f"📍 Showing traffic for: {address_label}")
+        st.sidebar.success(f"📍 Showing Map for: {address_label}")
     else:
         st.sidebar.error("Location not found. Please try another address.")
 
