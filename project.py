@@ -223,8 +223,6 @@ def fetch_road_data(city, api_key):
             out skel qt;
             """
 
-            st.write(f"Fetching road data for {city}...")
-
             # Send request to Overpass API
             response = requests.get(overpass_url, params={'data': overpass_query})
 
@@ -238,7 +236,7 @@ def fetch_road_data(city, api_key):
                 with open(filename, "w") as f:
                     json.dump(data, f, indent=4)
 
-                st.write(f"Road data saved to '{filename}'\n")
+        
             else:
                 st.error(f"Failed to fetch road data for {city}, HTTP Status Code: {response.status_code}\n")
         else:
