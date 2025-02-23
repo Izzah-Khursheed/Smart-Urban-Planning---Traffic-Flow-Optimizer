@@ -4,6 +4,8 @@ from streamlit_folium import folium_static
 import requests
 import json
 import osmnx as ox
+import networkx as nx
+import matplotlib.pyplot as plt
 import geopandas as gpd
 import pandas as pd
 
@@ -158,13 +160,37 @@ st.sidebar.markdown("""
    - Check weather conditions
 """)
 
+# Function to fetch and plot road network using OSMnx
+def plot_road_network(city_name):
+    """Fetch and plot the road network for a given city using OSMnx."""
+    st.subheader(f"Road Network for {city_name}")
+    try:
+        # Fetch road network from OpenStreetMap
+        graph = ox.graph_from_place(city_name + ", Pakistan", network_type="drive")
+        
+        # Plot the road network
+        fig, ax = ox.plot_graph(graph, node_size=0, edge_linewidth=0.5, bgcolor="white", show=False, close=False)
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"Error fetching or plotting road network for {city_name}: {str(e)}")
+
+# List of cities to fetch and plot road networks
+cities = ["Faisalabad", "Lahore", "Karachi", "Islamabad", "Peshawar"]
+
+# Add a section to display road networks
+st.sidebar.subheader("Road Network Visualization")
+selected_city = st.sidebar.selectbox("Select a city to view its road network:", cities)
+
+# Plot the road network for the selected city
+plot_road_network(selected_city)
+
 # Data fetching code
 def fetch_road_data(city, api_key):
     """Fetch road data for a given city using LocationIQ and Overpass API."""
     overpass_url = "http://overpass-api.de/api/interpreter"
     nominatim_url = "https://us1.locationiq.com/v1/search.php"
 
-    print(f"Fetching bounding box for {city}...")
+    st.write(f"Fetching bounding box for {city}...")
 
     # Use Nominatim API to get bounding box for the city
     nominatim_params = {
@@ -184,7 +210,7 @@ def fetch_road_data(city, api_key):
                 float(geo_data[0]["boundingbox"][1]),  # Max Lat
                 float(geo_data[0]["boundingbox"][3])   # Max Lon
             ]
-            print(f"Bounding box for {city}: {bbox}")
+            st.write(f"Bounding box for {city}: {bbox}")
 
             # Construct Overpass Query using the fetched bounding box
             overpass_query = f"""
@@ -197,7 +223,7 @@ def fetch_road_data(city, api_key):
             out skel qt;
             """
 
-            print(f"Fetching road data for {city}...")
+            st.write(f"Fetching road data for {city}...")
 
             # Send request to Overpass API
             response = requests.get(overpass_url, params={'data': overpass_query})
@@ -205,24 +231,22 @@ def fetch_road_data(city, api_key):
             if response.status_code == 200:
                 data = response.json()
                 num_elements = len(data.get('elements', []))
-                print(f"Total road elements fetched for {city}: {num_elements}")
+                st.write(f"Total road elements fetched for {city}: {num_elements}")
 
                 # Save JSON data to a file
                 filename = f"{city.lower()}_roads.json"
                 with open(filename, "w") as f:
                     json.dump(data, f, indent=4)
 
-                print(f"Road data saved to '{filename}'\n")
+                st.write(f"Road data saved to '{filename}'\n")
             else:
-                print(f"Failed to fetch road data for {city}, HTTP Status Code: {response.status_code}\n")
+                st.error(f"Failed to fetch road data for {city}, HTTP Status Code: {response.status_code}\n")
         else:
-            print(f"Failed to retrieve bounding box for {city}. Check API key and response format.\n")
+            st.error(f"Failed to retrieve bounding box for {city}. Check API key and response format.\n")
     else:
-        print(f"Failed to connect to Nominatim API for {city}, HTTP Status Code: {response.status_code}\n")
-
-# List of cities to fetch data for
-cities = ["Faisalabad", "Lahore", "Karachi", "Islamabad"]
+        st.error(f"Failed to connect to Nominatim API for {city}, HTTP Status Code: {response.status_code}\n")
 
 # Fetch road data for each city
-for city in cities:
-    fetch_road_data(city, LOCATIONIQ_API_KEY)
+if st.sidebar.button("Fetch Road Data"):
+    for city in cities:
+        fetch_road_data(city, LOCATIONIQ_API_KEY)
